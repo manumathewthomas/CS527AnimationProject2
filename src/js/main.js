@@ -5,6 +5,7 @@
     camera, controls, scene, renderer, mixer, bones=[], skeletonHelper;
 
   let t=0.99, controlIndex=0, tPositon=0, positionIndex=0;
+  let p = new THREE.Vector3();
 
   function setupSkeleton(result) {
 
@@ -30,7 +31,7 @@
    			bones.push(d);
    	});
 
-	  skeletonHelper = new THREE.SkeletonHelper( result.skeleton.bones[ 0 ] );
+	    skeletonHelper = new THREE.SkeletonHelper( result.skeleton.bones[ 0 ] );
       skeletonHelper.skeleton = result.skeleton; // allow animation mixer to bind to SkeletonHelper directly
 
       let boneContainer = new THREE.Group();
@@ -38,14 +39,6 @@
 
       scene.add( skeletonHelper );
       scene.add( boneContainer );
-
-		
-
-
-
-      // play animation
-      // mixer = new THREE.AnimationMixer( skeletonHelper );
-      // mixer.clipAction( result.clip ).setEffectiveWeight( 1.0 ).play();
   }
 
 
@@ -70,9 +63,9 @@
     camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
     camera.position.set( 0, 0 , 600 );
 
-    controls = new THREE.OrbitControls( camera );
-    controls.minDistance = 300;
-    controls.maxDistance = 700;
+    // controls = new THREE.OrbitControls( camera );
+    // controls.minDistance = 300;
+    // controls.maxDistance = 700;
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color( 0xeeeeee );
@@ -103,7 +96,7 @@
   }
 
   function deCasteljau(p0, p1, p2, p3, bone) {
-	let q0 = new THREE.Quaternion();
+	  let q0 = new THREE.Quaternion();
     let q1 = new THREE.Quaternion();
     let q2 = new THREE.Quaternion();
     let r0 = new THREE.Quaternion();
@@ -127,30 +120,29 @@
     let p2 = new THREE.Quaternion();
     let p3 = new THREE.Quaternion();
 
-	p0.set(component[controlIndex], component[controlIndex+1], component[controlIndex+2], component[controlIndex+3]);
-	p1.set(component[controlIndex+4], component[controlIndex+5], component[controlIndex+6], component[controlIndex+7]);
-	p2.set(component[controlIndex+8], component[controlIndex+9], component[controlIndex+10], component[controlIndex+11]);
-	p3.set(component[controlIndex+12], component[controlIndex+13], component[controlIndex+14], component[controlIndex+15]);
+    p0.set(component[controlIndex], component[(controlIndex+1)], component[(controlIndex+2)], component[(controlIndex+3)]);
+    p1.set(component[(controlIndex+4)], component[(controlIndex+5)], component[(controlIndex+6)], component[(controlIndex+7)]);
+    p2.set(component[(controlIndex+8)], component[(controlIndex+9)], component[(controlIndex+10)], component[(controlIndex+11)]);
+    p3.set(component[(controlIndex+12)], component[(controlIndex+13)], component[(controlIndex+14)], component[(controlIndex+15)]);
 	
-	deCasteljau(p0, p1, p2, p3, bone)
+    deCasteljau(p0, p1, p2, p3, bone);
   }
 
   function positionManager(bone, component, index) {
   	let p0 = new THREE.Vector3();
   	let p1 = new THREE.Vector3();
 
-  	let p = new THREE.Vector3();
-
 
   	p0.x = component[positionIndex];
   	p0.y = component[positionIndex+1];
   	p0.z = component[positionIndex+2];
 
-  	p1.x = component[positionIndex+3];
-  	p1.y = component[positionIndex+4];
-  	p1.z = component[positionIndex+5];
 
-  	tPositon = tPositon + 0.1; 
+    p1.x = component[component.length-3];
+  	p1.y = component[component.length-2];
+  	p1.z = component[component.length-1];
+
+  	tPositon = tPositon + 0.005; 
    
   	p.addVectors(p0.multiplyScalar(1-tPositon), p1.multiplyScalar(tPositon));
 
@@ -158,44 +150,19 @@
   	bone.position.y = p.y;
   	bone.position.z = p.z;
 
-
-   camera.position.x++;
-   camera.position.z++;
-
-
-
-
+    camera.position.set( p.x, p.y ,p.z + 400);
   }
-
-
 
   function animate() {
 
     requestAnimationFrame( animate );
 
     if ( mixer ) {
-    	if(t>=0.9)
+    	if(t>=1)
     	{
     		t=0;
-			controlIndex= controlIndex + 16;
-			
-			if(controlIndex>=152)
-				controlIndex=0
-
-    	
+			  controlIndex= (controlIndex + 12)%180;
     	}
-
-    	if(tPositon >= 1)
-    	{
-    		tPositon=0;
-    		positionIndex = positionIndex + 3;
-        if(positionIndex>135)
-        {
-
-          positionIndex=0
-        }
-    	}
-
 
     	_.forEach(mixer.clip.tracks, function(d,i) {
     		if(d.times.length==46)
@@ -224,8 +191,6 @@
 
   }
 
-
- 
   /* start the application once the DOM is ready */
   document.addEventListener('DOMContentLoaded', init);
 
