@@ -7,7 +7,7 @@
 
         <link rel="stylesheet" href="src/css/main.css">
 
-        <script src="lib/js/three.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/87/three.js"></script>
         <script src="lib/js/OrbitControls.js"></script>
         <script src="lib/js/BVHLoader.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.13.1/lodash.min.js"></script>

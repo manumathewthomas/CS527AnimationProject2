@@ -2,12 +2,35 @@
 (function(){
 
   let clock = new THREE.Clock(),
-    camera, controls, scene, renderer, mixer, skeletonHelper;
+    camera, controls, scene, renderer, mixer, bones=[], skeletonHelper;
 
+  let t=0.99, controlIndex=0, tPositon=0, positionIndex=0;
 
   function setupSkeleton(result) {
-   
-      skeletonHelper = new THREE.SkeletonHelper( result.skeleton.bones[ 0 ] );
+
+  	console.log(result)
+ 
+   	mixer = result;
+
+   	_.forEach(result.clip.tracks, function(d,i) {
+   		if(d.times.length==2)
+   		{
+   		 if(d.values.length==8) {
+   				_.forEach(result.skeleton.bones, function(bone,i){
+	   				if(bone.name == d.name.match(/\[(.*?)\]/)[1])
+	   					bone.quaternion.set(d.values[0],d.values[1],d.values[2],d.values[3]);
+	   				
+	   			});
+   			}
+   		}
+   	});
+
+   	_.forEach(result.skeleton.bones, function(d,i){
+   		if(d.name!="ENDSITE")
+   			bones.push(d);
+   	});
+
+	  skeletonHelper = new THREE.SkeletonHelper( result.skeleton.bones[ 0 ] );
       skeletonHelper.skeleton = result.skeleton; // allow animation mixer to bind to SkeletonHelper directly
 
       let boneContainer = new THREE.Group();
@@ -16,30 +39,9 @@
       scene.add( skeletonHelper );
       scene.add( boneContainer );
 
-       let staticJoint = [];
-       let dynamicJoint = [];
+		
 
-       _.forEach(result.clip.tracks, function(d) {
-          if(d.times.length == 2)
-            staticJoint.push(d);
-          else
-            dynamicJoint.push(d);
-       });
 
-       console.log(result.clip.tracks[0])
-
-       _.forEach(result.clip.tracks[0].times, function(d,i) {
-            controlPoints = {
-                              pt1:{x:0 ,y:0, z:0},
-                              pt2:{x:0 ,y:0, z:0},
-                              pt3:{x:0 ,y:0, z:0},
-                              pt4:{x:0 ,y:0, z:0}
-                            };
-            if(i<=result.clip.tracks[0].times.length-3)
-            {
-              controlPoints.pt1.x = result.clip.tracks[0].values[i]
-            }
-       });
 
       // play animation
       // mixer = new THREE.AnimationMixer( skeletonHelper );
@@ -66,7 +68,7 @@
     });
 
     camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
-    camera.position.set( 0, 200, 400 );
+    camera.position.set( 0, 0 , 600 );
 
     controls = new THREE.OrbitControls( camera );
     controls.minDistance = 300;
@@ -87,6 +89,7 @@
     window.addEventListener( 'resize', onWindowResize, false );
 
     /* animate the scene */
+
     animate();
   }
 
@@ -99,41 +102,130 @@
 
   }
 
+  function deCasteljau(p0, p1, p2, p3, bone) {
+	let q0 = new THREE.Quaternion();
+    let q1 = new THREE.Quaternion();
+    let q2 = new THREE.Quaternion();
+    let r0 = new THREE.Quaternion();
+    let r1 = new THREE.Quaternion();
+    t = t + 0.005; 
+
+  	q0 = p0.slerp(p1,t);
+  	q1 = p1.slerp(p2,t);
+  	q2 = p2.slerp(p3,t);
+  	r0 = q0.slerp(q1,t);
+  	r1 = q1.slerp(q2,t);
+
+   	THREE.Quaternion.slerp(r0, r1, bone.quaternion, t );
+
+  }
+
+  function rotationManager(bone, component, index) {
+  	
+    let p0 = new THREE.Quaternion();
+    let p1 = new THREE.Quaternion();
+    let p2 = new THREE.Quaternion();
+    let p3 = new THREE.Quaternion();
+
+	p0.set(component[controlIndex], component[controlIndex+1], component[controlIndex+2], component[controlIndex+3]);
+	p1.set(component[controlIndex+4], component[controlIndex+5], component[controlIndex+6], component[controlIndex+7]);
+	p2.set(component[controlIndex+8], component[controlIndex+9], component[controlIndex+10], component[controlIndex+11]);
+	p3.set(component[controlIndex+12], component[controlIndex+13], component[controlIndex+14], component[controlIndex+15]);
+	
+	deCasteljau(p0, p1, p2, p3, bone)
+  }
+
+  function positionManager(bone, component, index) {
+  	let p0 = new THREE.Vector3();
+  	let p1 = new THREE.Vector3();
+
+  	let p = new THREE.Vector3();
+
+
+  	p0.x = component[positionIndex];
+  	p0.y = component[positionIndex+1];
+  	p0.z = component[positionIndex+2];
+
+  	p1.x = component[positionIndex+3];
+  	p1.y = component[positionIndex+4];
+  	p1.z = component[positionIndex+5];
+
+  	tPositon = tPositon + 0.1; 
+   
+  	p.addVectors(p0.multiplyScalar(1-tPositon), p1.multiplyScalar(tPositon));
+
+  	bone.position.x = p.x;
+  	bone.position.y = p.y;
+  	bone.position.z = p.z;
+
+
+   camera.position.x++;
+   camera.position.z++;
+
+
+
+
+  }
+
+
+
   function animate() {
 
     requestAnimationFrame( animate );
 
-    let delta = clock.getDelta();
+    if ( mixer ) {
+    	if(t>=0.9)
+    	{
+    		t=0;
+			controlIndex= controlIndex + 16;
+			
+			if(controlIndex>=152)
+				controlIndex=0
 
-    if ( mixer ) mixer.update( delta );
+    	
+    	}
+
+    	if(tPositon >= 1)
+    	{
+    		tPositon=0;
+    		positionIndex = positionIndex + 3;
+        if(positionIndex>135)
+        {
+
+          positionIndex=0
+        }
+    	}
+
+
+    	_.forEach(mixer.clip.tracks, function(d,i) {
+    		if(d.times.length==46)
+   			{
+   				if(d.values.length==184) {
+   					_.forEach(mixer.skeleton.bones, function(bone,i){
+	   					if(bone.name == d.name.match(/\[(.*?)\]/)[1])
+	   					{
+    						rotationManager(bone, d.values, i)
+    					}
+    				});
+    			}
+    			else if(d.values.length==138) {
+    				_.forEach(mixer.skeleton.bones, function(bone,i){
+	   					if(bone.name == d.name.match(/\[(.*?)\]/)[1])
+	   					{
+							positionManager(bone, d.values, i)
+						}
+					});
+    			}
+    		}
+    	});
+    }
 
     renderer.render( scene, camera );
 
   }
 
-  function bSpline(t, controlPoints) {
-    let t2 = t * t;
-    let t3 = t2 * t;
-    let mt = 1-t;
-    let mt2 = mt * mt;
-    let mt3 = mt2 * mt;
 
-    return (scalarVectorProduct(mt3 * controlPoints.pt0) + 
-              scalarVectorProduct(3*mt2*t, controlPoints.pt1) + 
-              scalarVectorProduct(3*mt*t2, controlPoints.pt2) + 
-              scalarVectorProduct(t3, controlPoints.pt3));
-  }
-
-  let scalarVectorProduct = function(a, B)
-  {
-      let C = {x:0, y:0, z:0};
-      C.x = B.x * a;
-      C.y = B.y * a;
-      C.z = B.z * a;
-
-      return C;
-  }
-
+ 
   /* start the application once the DOM is ready */
   document.addEventListener('DOMContentLoaded', init);
 
